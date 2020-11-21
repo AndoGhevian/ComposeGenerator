@@ -1,0 +1,40 @@
+{
+  "name": "generator-compose",
+  "version": "2.0.0",
+  "description": "Embed or sync generator functions(honestly everything:)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --watch src/ --ext ts --exec 'tsc && node dist/index.js'",
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "generator combiner",
+    "embed generators",
+    "super generator",
+    "super function generator",
+    "function generator",
+    "embed",
+    "combine",
+    "generators",
+    "generator",
+    "super"
+  ],
+  "author": "Ando",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AndoGhevian/GeneratorCombiner.git"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^14.11.2",
+    "nodemon": "^2.0.4"
+  },
+  "dependencies": {
+    "immer": "^7.0.14",
+    "joi": "^17.3.0"
+  }
+}
