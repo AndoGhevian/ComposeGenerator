@@ -1,47 +1,96 @@
 export { default as sync } from './Sync'
+export { default as embed } from './Embed'
 
 
 
 import { default as sync } from './Sync'
+import { default as embed } from './Embed'
 
-// function* genFunc1() {
-//     let x = yield 1
-//     console.log(`x1: ${x}`)
-//     x = yield 2
-//     console.log(`x2: ${x}`)
-//     x = yield 3
-//     console.log(`x3: ${x}`)
-//     x = yield 4
-//     console.log(`x4: ${x}`)
-//     x = yield 5
-//     console.log(`x5: ${x}`)
-//     return 'genFunc1'
-// }
+function* genFunc1() {
+    let x = yield 1
+    console.log(`x1: ${x}`)
+    x = yield 2
+    console.log(`x2: ${x}`)
+    x = yield 3
+    console.log(`x3: ${x}`)
+    x = yield 4
+    console.log(`x4: ${x}`)
+    x = yield 5
+    console.log(`x5: ${x}`)
+    return 'genFunc1'
+}
 
-// function* genFunc2(start?: string) {
-//     if (start !== undefined) {
-//         yield start
-//     }
-//     let y = yield 1
-//     console.log(`y1: ${y}`)
-//     y = yield 'Hello'
-//     console.log(`y2: ${y}`)
-//     return 'genFunc2'
-// }
+function* genFunc2(start?: string) {
+    if (start !== undefined) {
+        yield start
+    }
+    let y = yield 1
+    console.log(`y1: ${y}`)
+    y = yield 'Hello'
+    console.log(`y2: ${y}`)
+    return 'genFunc2'
+}
 
-// const array = [100, 1000, 10000]
-// function* genFuncArray() {
-//     for (const val of array) {
-//         yield val
-//     }
-//     return 'genFuncArray'
-// }
+const array = [100, 1000, 10000]
+function* genFuncArray() {
+    for (const val of array) {
+        yield val
+    }
+    return 'genFuncArray'
+}
 
-const gen = sync([genFunc1, genFunc2, genFuncArray])()
-gen.
+function* emptyGenFunc() {
+    return 'ssssssss'
+}
+
+const gen = embed({
+    c: genFunc2,
+    d: genFunc2,
+})()
+
 
 console.log(
-    gen.next(['xxx', 'yyy']),
+    gen.next((lastResults, key) => {
+        // console.log('lastResults')
+        // console.log(lastResults)
+        // return 1
+    }),
+)
+console.log(
+    gen.next((lastResults, key) => {
+        // console.log('lastResults')
+        // console.log(lastResults)
+        // console.log('key')
+        // console.log(key)
+        return 'blue'
+    }),
+)
+console.log(
+    gen.next((lastResults, key) => {
+        // console.log('lastResults')
+        // console.log(lastResults)
+        // console.log('key')
+        // console.log(key)
+        return 'blue'
+    }),
+)
+console.log(
+    gen.next((lastResults, key) => {
+        // console.log('lastResults')
+        // console.log(lastResults)
+        // console.log('key')
+        // console.log(key)
+        return 'blue'
+    }),
+)
+console.log(
+    gen.next((lastResults, key) => {
+        console.log('lastResults')
+        console.log(lastResults)
+        console.log('key')
+        console.log(key)
+        return 'yelloowwwwwwww'
+    }),
 )
 // console.log(
 //     gen.next(['xxx', 'yyy']),

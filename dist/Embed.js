@@ -22,51 +22,64 @@ function initializeGenerators(generatorFunctions, callArgs) {
         initializedGenerators,
     };
 }
-function sync(generatorFunctions) {
+function initializeSingleGenerator(key, generatorFunctions, callArgs) {
+    const args = callArgs[key];
+    const genFunc = generatorFunctions[key];
+    return args instanceof Array ? genFunc(...args) : genFunc();
+}
+function embed(generatorFunctions) {
     return function* (args) {
         const callArgs = (args ? args : {});
         const { stateMap, count, initializedGenerators, } = initializeGenerators(generatorFunctions, callArgs);
         const generatorFunctionsIsArray = generatorFunctions instanceof Array;
-        let doneCount = 0;
-        let nextArg = undefined;
+        let result = (generatorFunctionsIsArray
+            ? Array(generatorFunctions.length)
+            : {});
+        let alreadyDone = false;
+        for (const key in initializedGenerators) {
+            const nextVal = initializedGenerators[key].next();
+            result[key] = nextVal;
+            alreadyDone = alreadyDone || !!nextVal.done;
+        }
+        if (alreadyDone) {
+            return result;
+        }
+        let nextArg = yield cpResult(result);
         while (true) {
-            const result = (generatorFunctionsIsArray
-                ? Array(generatorFunctions.length)
-                : {});
-            const lastResults = (generatorFunctionsIsArray ? [] : {});
-            let gen;
-            let getNextVal;
-            getNextVal = () => gen.next();
+            let nextFunc = (lastResults, key) => nextArg;
             if (typeof nextArg === 'function') {
-                getNextVal = (lastResults, key) => gen.next(nextArg(lastResults, key));
+                nextFunc = (lastResults, key) => nextArg(cpResult(lastResults), key);
             }
-            else if (generatorFunctionsIsArray && nextArg instanceof Array || !generatorFunctionsIsArray && nextArg instanceof Object) {
-                getNextVal = (lastResult, key) => gen.next(nextArg[key]);
-            }
-            for (let key in initializedGenerators) {
-                if (stateMap[key].done) {
-                    getNextVal(lastResults, key);
-                    result[key] = Object.assign({}, stateMap[key].returnedValue);
-                    lastResults[key] = Object.assign({}, stateMap[key].returnedValue);
-                    continue;
+            const lastResults = (generatorFunctionsIsArray ? [] : {});
+            let doneCount = 0;
+            for (const key in initializedGenerators) {
+                const arg = nextFunc(lastResults, key);
+                const genFunc = initializedGenerators[key];
+                const nextVal = genFunc.next(arg);
+                if (!nextVal.done) {
+                    result[key] = nextVal;
+                    break;
                 }
-                gen = initializedGenerators[key];
-                const nextVal = getNextVal(lastResults, key);
-                if (nextVal.done) {
-                    doneCount++;
-                    stateMap[key].done = true;
-                    stateMap[key].returnedValue = nextVal;
-                }
-                result[key] = Object.assign({}, nextVal);
-                lastResults[key] = Object.assign({}, nextVal);
+                doneCount++;
+                lastResults[key] = nextVal;
+                const resetedGen = initializeSingleGenerator(key, generatorFunctions, callArgs);
+                initializedGenerators[key] = resetedGen;
+                result[key] = resetedGen.next();
             }
-            if (doneCount !== count) {
-                nextArg = yield result;
+            if (doneCount === count) {
+                return lastResults;
             }
-            else {
-                return result;
+            nextArg = yield cpResult(result);
+        }
+        function cpResult(result) {
+            const currentResultCopy = (result instanceof Array
+                ? Array(result.length)
+                : {});
+            for (const key in result) {
+                currentResultCopy[key] = Object.assign({}, result[key]);
             }
+            return currentResultCopy;
         }
     };
 }
-exports.default = sync;
+exports.default = embed;

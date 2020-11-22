@@ -71,49 +71,60 @@ export default function sync<T extends ((...args: any[]) => Generator)[] | {
         const generatorFunctionsIsArray = generatorFunctions instanceof Array
 
 
+        let result: { [key: string]: IteratorResult<any, any> }
+        let nextArg: any
+
         let doneCount = 0
-        let nextArg: any = undefined
         while (true) {
-            const result = (generatorFunctionsIsArray
+            result = (generatorFunctionsIsArray
                 ? Array(generatorFunctions.length)
                 : {}) as { [key: string]: IteratorResult<any, any> }
 
             const lastResults = (generatorFunctionsIsArray ? [] : {}) as { [key: string]: IteratorResult<any, any> }
 
-            let gen: Generator
-            let getNextVal: (lastResults: any, key: any) => IteratorResult<any, any>
-
-            getNextVal = () => gen.next()
+            let nextFunc: (lastResults: any, key: any) => any = () => void 0;
             if (typeof nextArg === 'function') {
-                getNextVal = (lastResults, key) => gen.next(nextArg(lastResults, key))
+                nextFunc = (lastResults, key) => nextArg(cpResult(lastResults), key)
             } else if (generatorFunctionsIsArray && nextArg instanceof Array || !generatorFunctionsIsArray && nextArg instanceof Object) {
-                getNextVal = (lastResult: any, key: any) => gen.next(nextArg[key])
+                nextFunc = (lastResult, key) => nextArg[key]
             }
 
             for (let key in initializedGenerators) {
+                const arg = nextFunc(lastResults, key)
+                const gen = initializedGenerators[key]
+
                 if (stateMap[key].done) {
-                    getNextVal(lastResults, key)
-                    result[key] = { ...stateMap[key].returnedValue }
-                    lastResults[key] = { ...stateMap[key].returnedValue }
+                    result[key] = stateMap[key].returnedValue
+                    lastResults[key] = stateMap[key].returnedValue
                     continue
                 }
 
-                gen = initializedGenerators[key]
-                const nextVal = getNextVal(lastResults, key)
+
+                const nextVal = gen.next(arg)
                 if (nextVal.done) {
                     doneCount++
                     stateMap[key].done = true
                     stateMap[key].returnedValue = nextVal
                 }
-                result[key] = { ...nextVal }
-                lastResults[key] = { ...nextVal }
+                result[key] = nextVal
+                lastResults[key] = nextVal
             }
 
-            if (doneCount !== count) {
-                nextArg = yield result as any
-            } else {
+            if (doneCount === count) {
                 return result as any
             }
+            nextArg = yield cpResult(result) as any
+        }
+        function cpResult(result: { [key: string]: IteratorResult<any, any> }): { [key: string]: IteratorResult<any, any> } {
+            const currentResultCopy = (result instanceof Array
+                ? Array(result.length)
+                : {}) as { [key: string]: IteratorResult<any, any> }
+
+            for (const key in result) {
+                currentResultCopy[key] = { ...result[key] }
+            }
+
+            return currentResultCopy as any
         }
     }
 }
