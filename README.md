@@ -1,6 +1,6 @@
 # ComposeGenerator
 
-Compose Generator designed to allow you easily syncronize or embed **generator functions**.
+Compose Generator designed to allow you easily synchronize or embed **generator functions**.
 
 ## Usage
 lets say you have generator functions **genFunc1**, **genFunc2**, **genFunc3**...
@@ -151,8 +151,7 @@ If **nextArg** is function, it`s signature is( **Not A Typescript** ):
 ```javascript
 (lastResults: IteratorResult<any, any>[]
 | { [key: string]?: IteratorResult<any, any> },
-key: string
-) => any
+key: string) => any
 ```
 - **lastResults** is an array(or map) of results of compositions 
   last generators **.next(arg)** calls.
@@ -226,8 +225,7 @@ as for **Race** and **Sync**, But with arguments different description
 ```javascript
 (lastResults: IteratorResult<any, any>[]
 | { [key: string]?: IteratorResult<any, any> },
-key: string
-) => any
+key: string) => any
 ```
 - **lastResults** is an array(or map) of results of compositions 
   last generators **.next(arg)** calls.
