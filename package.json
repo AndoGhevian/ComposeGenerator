@@ -1,5 +1,5 @@
 {
-  "name": "generator-compose",
+  "name": "compose-generator",
   "version": "2.0.0",
   "description": "Embed or sync generator functions with ease",
   "main": "dist/index.js",
@@ -14,6 +14,7 @@
   "keywords": [
     "generator combiner",
     "generator composer",
+    "generator compose",
     "embed generators",
     "synchronize generators",
     "super generator",

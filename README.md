@@ -1,13 +1,13 @@
-# GeneratorCompose
+# ComposeGenerator
 
-Generator compose designed to allow you easily syncronize or embed **generator functions**.
+Compose Generator designed to allow you easily syncronize or embed **generator functions**.
 
 ## Usage
 lets say you have generator functions **genFunc1**, **genFunc2**, **genFunc3**...
 If you want to synchronously use them, i.e. get generators and make synchronous
 _.next()_ calls on them. you can use **sync** function.
 ```javascript
-const { sync } = require('generator-compose')
+const { sync } = require('compose-generator')
 
 const compose = sync([ genFunc1, genFunc2, genFunc3 ])
 const gen = compose([args1, args2, args3]) // args are arguments array of corresponding generator function.
@@ -52,7 +52,7 @@ for(const v1 of gen1) {
 ```
 You can use **Embed** composer:
 ```javascript
-const { embed } = require('generator-compose')
+const { embed } = require('compose-generator')
 
 // Up from down.
 const compose = embed({
