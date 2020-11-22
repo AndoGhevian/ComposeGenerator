@@ -73,31 +73,42 @@ for(const nextResults of gen) {
 In this case it will also reset generators until most outer generator is exhausted.
 
 ## API
-### Sync
-Function signature is( **Not A Typescript** ):
+### Composer
+Eache of **sync**, **race** and **embed** functions we will call **composer** function.
+
+Composer functions signature is( **Not A Typescript** ):
 ```javascript
-function sync(generatorFunctions: GeneratorFunction[]
+function composer(generatorFunctions: GeneratorFunction[]
  | { [key: string]: GeneratorFunction })
  : GeneratorFunction<callArgs[] | { [key: string]: callArgs }>
 ```
 
-Compose callArgs:
+**Composer** function call result is a new generator function which is called **compose**.
+In cases when we considering generator, returned by **compose** generator function,
+we will also use word - **compose**, so be aware of the context.
 
-Call argument must be an array(or map if **generatorFunctions** is map)
-of **call arguments arrays** for appropriate function generators.
+**Compose** callArgs:
 
-If **undefined** provided generator function will be called without arguments.
+Call argument of **compose** generator function, must be 
+corresponding function generators **call arguments arrays**
+array(or map, if **generatorFunctions** is map)
+
+If **undefined** provided for some generator function **callArgs**,
+it will be called without arguments.
+
+If **undefined** provided for the whole argument **callArgs**,
+generator functions will be instantiating without arguments.
 
 Call examples:
 - with generator functions **array**:
     ```javascript
-    const compose = sync([ genFunc1, genFunc2, genFunc3 ])
+    const compose = composer([ genFunc1, genFunc2, genFunc3 ])
     const gen = compose([ [ arg0, arg1 ], [ ] ])
     ```
 - with generator functions **map**:
     ```javascript
     // Or with Map
-    const compose = sync({ 
+    const compose = composer({ 
         key1: genFunc1,
         key2: genFunc2,
         key3: genFunc3
@@ -108,22 +119,48 @@ Call examples:
     })
     ```
 
-Compose **.next(arg)**:
+    ```javascript
+    // If no callArgs
+        compose()
+        // same as ->
+        genFunc1()
+        genFunc2()
+        genFunc3()
+    ```
 
-**.next()** call argument must be **function**, **undefined**, or an array(or map if **generatorFunctions** is map)
-of call arguments for appropriate function generators,
+After generator functions composed with some of the provided **composer** functions,
+each result of **.next(arg)** call on the **compose** generator will be an array( or map,
+depending on what provided to composer) of next call results for each generator included in composition, e.g.
+```javascript
+const nextResults = [
+    { done: false, value: 1 } // gen1.next(arg1)
+    { done: false, value: 'what?' } // gen2.next(arg2)
+    { done: true, value: 'end' } // gen3.next(arg3)
+]
+```
+
+### Sync
+**Sync** _extends_ **Composer**
+
+**Compose** .next(nextArg):
+
+**.next(nextArg)** call argument must be **function**, **undefined**, or an array(or map if **generatorFunctions** is map) of **.next(arg)** call arguments for appropriate function generators,
 
 
 If **nextArg** is function, it`s signature is( **Not A Typescript** ):
 ```javascript
-(lastResults: IteratorResult<any, any>[] 
+(lastResults: IteratorResult<any, any>[]
 | { [key: string]?: IteratorResult<any, any> },
 key: string
 ) => any
 ```
-- **lastResults** is an array(or map) of last generators **.next()** calls.
+- **lastResults** is an array(or map) of results of compositions 
+  last generators **.next(arg)** calls.
 - **key** is a key of current generator
 - **return** is a value to call **currentGenerator.next()** with.
+
+This function will be called for each generator from start, and its returned value will be used
+as **.next()** call argument for appropriate generator.
 
 
 Next Call examples:
@@ -162,8 +199,75 @@ Next Call examples:
 
         return lastResults[lastKeyTmp].value // same as super of next values
     })
-    // same as
+    // same as super.
     const g1 = gen1.next()
     const g2 = gen2.next(g1.value)
     const g3 = gen3.next(g2.value)
+    ```
+If some of the generators exhausted, it's last value will be used until all generators exhausted.
+i.e. if some of them finished with value `{ done: true, value: 'finish' }`, it will be returned for subsequent **compose** next calls.
+
+### Race
+**Race** _extends_ **Composer**
+
+The main difference of **Race** from **Sync**, is that it will reset generators each time they exhausted, so return values will not be included in results.
+Reset will be performed with same **callArgs** provided to **Composer**.
+
+### Embed
+**Embed** _extends_ **Composer**
+
+**Compose** .next(nextArg):
+
+**.next(nextArg)** call argument must be **function**, or any other value.
+
+If **nextArg** is function, it`s signature is same
+as for **Race** and **Sync**, But with arguments different description
+( **Not A Typescript** ):
+```javascript
+(lastResults: IteratorResult<any, any>[]
+| { [key: string]?: IteratorResult<any, any> },
+key: string
+) => any
+```
+- **lastResults** is an array(or map) of results of compositions 
+  last generators **.next(arg)** calls.
+- **key** is a key of current generator
+- **return** is a value to call **currentGenerator.next()** with.
+
+This function will be called each time starting from first generator, and continue until some of them is not exhausted, if they are all exhausted, **compose** generator will be returned.
+
+Each time it is called, its returned value will be used
+as **.next()** call argument for appropriate generator(for which it is called).
+If after **.next()** generator is exhausted, i.e. `done=true`,
+this function will be called for next generator with lastResults containing appropriate return values for last generators.
+
+If some of the generators exhausted, it will be reseted with initial **callArgs**.
+
+Next Call examples:
+- with **NotFunction**:
+    ```javascript
+    const compose = embed([ genFunc1, genFunc2, genFunc3 ])
+    const gen = compose([ [ arg0, arg1 ], [ ] ])
+
+    gen.next(nextArg)
+    // same as
+    const gen1Val = gen1.next(nextArg)
+    if(gen1Val.done) {
+        gen2.next(nextArg)
+        // ... and so on
+    } else {
+        // next will be not called
+    }
+    // Finial merged state will be here.
+    ```
+- with **function**
+    ```javascript
+    const compose = sync([ genFunc1, genFunc2, genFunc3 ])
+    const gen = compose([ [ arg0, arg1 ], [ ] ])
+
+    let lastKey
+    gen.next((lastResults, key) => {
+        // This function will be called for first generator every time
+        // and subsequent calles will be performed, when it is returned after calling .next()
+    })
     ```
