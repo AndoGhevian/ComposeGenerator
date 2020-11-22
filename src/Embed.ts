@@ -1,14 +1,9 @@
-type CallArgs<T extends ((...args: any[]) => Generator)[] | {
-    [key: string]: ((...args: any[]) => Generator)
-}> = T extends any[]
-    ? (any[] | undefined)[]
-    : { [P in keyof T]?: any[] };
-
-type ComposeResult<T extends ((...args: any[]) => Generator)[] | {
-    [key: string]: ((...args: any[]) => Generator)
-}> = T extends any[]
-    ? IteratorResult<any, any>[]
-    : { [P in keyof T]: IteratorResult<any, any> }
+import { CallArgs, ComposeResult } from "./commonTypes";
+import {
+    cpResult,
+    initializeGenerators,
+    initializeSingleGenerator,
+} from "./utils";
 
 interface CustomGenerator<T extends ((...args: any[]) => Generator)[] | {
     [key: string]: ((...args: any[]) => Generator)
@@ -18,49 +13,6 @@ interface CustomGenerator<T extends ((...args: any[]) => Generator)[] | {
         key: string
     ) => any) : any): IteratorResult<ComposeResult<T>, ComposeResult<T>>;
     [Symbol.iterator](): CustomGenerator<T>
-}
-
-function initializeGenerators(
-    generatorFunctions: { [key: string]: (...args: any[]) => Generator },
-    callArgs: { [key: string]: any }
-) {
-    const initializedGenerators: { [key: string]: Generator } = {}
-
-    let stateMap: {
-        [key: string]: {
-            done: boolean,
-            returnedValue?: any
-        }
-    } = {} as any
-    let count = 0
-
-    for (const key in generatorFunctions) {
-        const args = callArgs[key]
-        const genFunc = generatorFunctions[key]
-        if (args instanceof Array) {
-            initializedGenerators[key] = genFunc(...args)
-        } else {
-            initializedGenerators[key] = genFunc()
-        }
-
-        stateMap[key] = { done: false }
-        count++
-    }
-    return {
-        stateMap,
-        count,
-        initializedGenerators,
-    }
-}
-
-function initializeSingleGenerator(
-    key: string,
-    generatorFunctions: { [key: string]: (...args: any[]) => Generator },
-    callArgs: { [key: string]: any }
-) {
-    const args = callArgs[key]
-    const genFunc = generatorFunctions[key]
-    return args instanceof Array ? genFunc(...args) : genFunc()
 }
 
 
@@ -128,18 +80,6 @@ export default function embed<T extends ((...args: any[]) => Generator)[] | {
             }
 
             nextArg = yield cpResult(result) as any
-        }
-
-        function cpResult(result: { [key: string]: IteratorResult<any, any> }): { [key: string]: IteratorResult<any, any> } {
-            const currentResultCopy = (result instanceof Array
-                ? Array(result.length)
-                : {}) as { [key: string]: IteratorResult<any, any> }
-
-            for (const key in result) {
-                currentResultCopy[key] = { ...result[key] }
-            }
-
-            return currentResultCopy as any
         }
     }
 }

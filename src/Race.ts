@@ -2,10 +2,11 @@ import { CallArgs, ComposeNext, ComposeResult } from "./commonTypes";
 import {
     cpResult,
     initializeGenerators,
+    initializeSingleGenerator,
 } from "./utils";
 
 
-export default function sync<T extends ((...args: any[]) => Generator)[] | {
+export default function race<T extends ((...args: any[]) => Generator)[] | {
     [key: string]: ((...args: any[]) => Generator)
 }>(generatorFunctions: T) {
     return function* (args?: CallArgs<T>): Generator<ComposeResult<T>, ComposeResult<T>, ComposeNext<T>> {
@@ -21,10 +22,22 @@ export default function sync<T extends ((...args: any[]) => Generator)[] | {
         const generatorFunctionsIsArray = generatorFunctions instanceof Array
 
 
-        let result: { [key: string]: IteratorResult<any, any> }
-        let nextArg: any
+        let result = (generatorFunctionsIsArray
+            ? Array(generatorFunctions.length)
+            : {}) as { [key: string]: IteratorResult<any, any> }
 
-        let doneCount = 0
+        let alreadyDone = false
+        for (const key in initializedGenerators) {
+            const nextVal = initializedGenerators[key].next()
+            result[key] = nextVal
+            alreadyDone = alreadyDone || !!nextVal.done
+        }
+        if (alreadyDone) {
+            return result as any
+        }
+
+
+        let nextArg: any = yield cpResult(result) as any
         while (true) {
             result = (generatorFunctionsIsArray
                 ? Array(generatorFunctions.length)
@@ -39,30 +52,28 @@ export default function sync<T extends ((...args: any[]) => Generator)[] | {
                 nextFunc = (lastResults, key) => nextArg[key]
             }
 
-            for (let key in initializedGenerators) {
+            for (const key in initializedGenerators) {
                 const arg = nextFunc(lastResults, key)
                 const gen = initializedGenerators[key]
 
-                if (stateMap[key].done) {
-                    result[key] = stateMap[key].returnedValue
-                    lastResults[key] = stateMap[key].returnedValue
-                    continue
-                }
-
-
                 const nextVal = gen.next(arg)
                 if (nextVal.done) {
-                    doneCount++
-                    stateMap[key].done = true
-                    stateMap[key].returnedValue = nextVal
+                    const resetedGen = initializeSingleGenerator(
+                        key,
+                        generatorFunctions as { [key: string]: (...args: any[]) => Generator },
+                        callArgs
+                    )
+                    initializedGenerators[key] = resetedGen
+
+                    const resetedNextVal = resetedGen.next()
+                    result[key] = resetedNextVal
+                    lastResults[key] = resetedNextVal
+                    continue
                 }
                 result[key] = nextVal
                 lastResults[key] = nextVal
             }
 
-            if (doneCount === count) {
-                return result as any
-            }
             nextArg = yield cpResult(result) as any
         }
     }

@@ -1,13 +1,4 @@
-declare type CallArgs<T extends ((...args: any[]) => Generator)[] | {
-    [key: string]: ((...args: any[]) => Generator);
-}> = T extends any[] ? (any[] | undefined)[] : {
-    [P in keyof T]?: any[];
-};
-declare type ComposeResult<T extends ((...args: any[]) => Generator)[] | {
-    [key: string]: ((...args: any[]) => Generator);
-}> = T extends any[] ? IteratorResult<any, any>[] : {
-    [P in keyof T]: IteratorResult<any, any>;
-};
+import { CallArgs, ComposeResult } from "./commonTypes";
 interface CustomGenerator<T extends ((...args: any[]) => Generator)[] | {
     [key: string]: ((...args: any[]) => Generator);
 }> extends Generator<ComposeResult<T>, ComposeResult<T>> {
