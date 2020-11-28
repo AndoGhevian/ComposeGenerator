@@ -36,7 +36,7 @@
   "author": "Ando",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndoGhevian/GeneratorCompose.git"
+    "url": "https://github.com/AndoGhevian/ComposeGenerator.git"
   },
   "license": "ISC",
   "devDependencies": {
