@@ -20,15 +20,18 @@
     "super generator",
     "super function generator",
     "function generator",
+    "generators",
     "embed",
     "sync",
     "race",
+    "composition",
     "combine",
     "compose",
     "generators",
     "generator",
     "super",
-    "synchronize"
+    "synchronize",
+    "functions"
   ],
   "author": "Ando",
   "repository": {
