@@ -1,16 +1,17 @@
-import { CallArgs, ComposeNext, ComposeResult } from "./commonTypes";
+import {
+    Compose,
+    Composer,
+} from "./commonTypes";
 import {
     cpResult,
     initializeGenerators,
-    initializeSingleGenerator,
+    resetGenerator,
 } from "./utils";
 
 
-export default function race<T extends ((...args: any[]) => Generator)[] | {
-    [key: string]: ((...args: any[]) => Generator)
-}>(generatorFunctions: T) {
-    return function* (args?: CallArgs<T>): Generator<ComposeResult<T>, ComposeResult<T>, ComposeNext<T>> {
-        const callArgs = (args ? args : {}) as { [key: string]: any }
+const race: Composer<'race'> = function (generatorFunctions) {
+    const compose: Compose<'race'> = function* (args: any) {
+        const callArgs: any = (args ? args : {})
         const {
             stateMap,
             count,
@@ -19,46 +20,47 @@ export default function race<T extends ((...args: any[]) => Generator)[] | {
             generatorFunctions as { [key: string]: (...args: any[]) => Generator },
             callArgs
         )
-        const generatorFunctionsIsArray = generatorFunctions instanceof Array
 
-
-        let result = (generatorFunctionsIsArray
-            ? Array(generatorFunctions.length)
-            : {}) as { [key: string]: IteratorResult<any, any> }
-
+        let result: any = {}
         let alreadyDone = false
         for (const key in initializedGenerators) {
             const nextVal = initializedGenerators[key].next()
-            result[key] = nextVal
+            const resultVal = stateMap[key].isCompose ? nextVal.value : nextVal
+            result[key] = resultVal
             alreadyDone = alreadyDone || !!nextVal.done
         }
         if (alreadyDone) {
             return result as any
         }
 
-
-        let nextArg: any = yield cpResult(result) as any
+        let nextArg = yield cpResult(result) as any
         while (true) {
-            result = (generatorFunctionsIsArray
-                ? Array(generatorFunctions.length)
-                : {}) as { [key: string]: IteratorResult<any, any> }
+            const lastResults: any = {}
+            result = {}
 
-            const lastResults = (generatorFunctionsIsArray ? [] : {}) as { [key: string]: IteratorResult<any, any> }
-
-            let nextFunc: (lastResults: any, key: any) => any = () => void (0)
+            let nextFunc: (lastResults: any, key: any) => any
+            nextFunc = () => void (0)
             if (typeof nextArg === 'function') {
-                nextFunc = (lastResults, key) => nextArg(cpResult(lastResults), key)
-            } else if (generatorFunctionsIsArray && nextArg instanceof Array || !generatorFunctionsIsArray && nextArg instanceof Object) {
+                let lastNextArgs: any = {}
+                nextFunc = (lastResults, key) => {
+                    const arg = nextArg(cpResult(lastResults), key, lastNextArgs, compose)
+                    if (arg instanceof Object) {
+                        lastNextArgs = arg
+                    }
+                    return lastNextArgs[key]
+                }
+            } else if (nextArg instanceof Object) {
                 nextFunc = (lastResults, key) => nextArg[key]
             }
 
             for (const key in initializedGenerators) {
-                const arg = nextFunc(lastResults, key)
                 const gen = initializedGenerators[key]
+                const arg = nextFunc(lastResults, key)
 
                 const nextVal = gen.next(arg)
+                const resultVal = stateMap[key].isCompose ? nextVal.value : nextVal
                 if (nextVal.done) {
-                    const resetedGen = initializeSingleGenerator(
+                    const resetedGen = resetGenerator(
                         key,
                         generatorFunctions as { [key: string]: (...args: any[]) => Generator },
                         callArgs
@@ -67,14 +69,29 @@ export default function race<T extends ((...args: any[]) => Generator)[] | {
 
                     const resetedNextVal = resetedGen.next()
                     result[key] = resetedNextVal
-                    lastResults[key] = resetedNextVal
+                    lastResults[key] = resultVal
                     continue
                 }
-                result[key] = nextVal
-                lastResults[key] = nextVal
+                result[key] = resultVal
+                lastResults[key] = resultVal
             }
 
             nextArg = yield cpResult(result) as any
         }
-    }
+    } as any
+    compose.composeType = 'race'
+    Object.defineProperty(compose, 'emptyNextArgs', {
+        get() {
+            return {}
+        }
+    })
+    Object.defineProperty(compose, 'emptyCallArgs', {
+        get() {
+            return {}
+        }
+    })
+    return compose
 }
+
+
+export default race

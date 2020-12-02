@@ -11,6 +11,13 @@ export function cpResult(result: { [key: string]: IteratorResult<any, any> }): {
 }
 
 
+export function isCompose(arg: any) {
+    if (typeof arg === 'function' && arg.composeType) {
+        return true
+    }
+    return false
+}
+
 export function initializeGenerators(
     generatorFunctions: { [key: string]: (...args: any[]) => Generator },
     callArgs: { [key: string]: any }
@@ -19,8 +26,9 @@ export function initializeGenerators(
 
     let stateMap: {
         [key: string]: {
-            done: boolean,
+            done: boolean
             returnedValue?: any
+            isCompose?: boolean
         }
     } = {} as any
     let count = 0
@@ -28,13 +36,14 @@ export function initializeGenerators(
     for (const key in generatorFunctions) {
         const args = callArgs[key]
         const genFunc = generatorFunctions[key]
-        if (args instanceof Array) {
-            initializedGenerators[key] = genFunc(...args)
-        } else {
-            initializedGenerators[key] = genFunc()
-        }
 
         stateMap[key] = { done: false }
+        if (isCompose(genFunc)) {
+            initializedGenerators[key] = genFunc(args instanceof Object ? args : {})
+            stateMap[key].isCompose = true
+        } else {
+            initializedGenerators[key] = genFunc(...(args instanceof Array ? args : []))
+        }
         count++
     }
     return {
@@ -44,12 +53,16 @@ export function initializeGenerators(
     }
 }
 
-export function initializeSingleGenerator(
+export function resetGenerator(
     key: string,
     generatorFunctions: { [key: string]: (...args: any[]) => Generator },
     callArgs: { [key: string]: any }
 ) {
     const args = callArgs[key]
     const genFunc = generatorFunctions[key]
-    return args instanceof Array ? genFunc(...args) : genFunc()
+    if (isCompose(genFunc)) {
+        return genFunc(args instanceof Object ? args : {})
+    } else {
+        return genFunc(...(args instanceof Array ? args : []))
+    }
 }

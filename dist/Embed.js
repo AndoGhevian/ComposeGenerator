@@ -1,18 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils_1 = require("./utils");
-function embed(generatorFunctions) {
-    return function* (args) {
+const embed = function (generatorFunctions) {
+    const compose = function* (args) {
         const callArgs = (args ? args : {});
         const { stateMap, count, initializedGenerators, } = utils_1.initializeGenerators(generatorFunctions, callArgs);
-        const generatorFunctionsIsArray = generatorFunctions instanceof Array;
-        let result = (generatorFunctionsIsArray
-            ? Array(generatorFunctions.length)
-            : {});
+        let result = {};
         let alreadyDone = false;
         for (const key in initializedGenerators) {
             const nextVal = initializedGenerators[key].next();
-            result[key] = nextVal;
+            const resultVal = stateMap[key].isCompose ? nextVal.value : nextVal;
+            result[key] = resultVal;
             alreadyDone = alreadyDone || !!nextVal.done;
         }
         if (alreadyDone) {
@@ -20,23 +18,35 @@ function embed(generatorFunctions) {
         }
         let nextArg = yield utils_1.cpResult(result);
         while (true) {
-            let nextFunc = (lastResults, key) => nextArg;
+            const lastResults = {};
+            let nextFunc;
+            nextFunc = () => void (0);
             if (typeof nextArg === 'function') {
-                nextFunc = (lastResults, key) => nextArg(utils_1.cpResult(lastResults), key);
+                let lastNextArgs = {};
+                nextFunc = (lastResults, key) => {
+                    const arg = nextArg(utils_1.cpResult(lastResults), key, lastNextArgs, compose);
+                    if (arg instanceof Object) {
+                        lastNextArgs = arg;
+                    }
+                    return lastNextArgs[key];
+                };
             }
-            const lastResults = (generatorFunctionsIsArray ? [] : {});
+            else if (nextArg instanceof Object) {
+                nextFunc = (lastResults, key) => nextArg[key];
+            }
             let doneCount = 0;
             for (const key in initializedGenerators) {
+                const gen = initializedGenerators[key];
                 const arg = nextFunc(lastResults, key);
-                const genFunc = initializedGenerators[key];
-                const nextVal = genFunc.next(arg);
+                const nextVal = gen.next(arg);
+                const resultVal = stateMap[key].isCompose ? nextVal.value : nextVal;
                 if (!nextVal.done) {
-                    result[key] = nextVal;
+                    result[key] = resultVal;
                     break;
                 }
                 doneCount++;
-                lastResults[key] = nextVal;
-                const resetedGen = utils_1.initializeSingleGenerator(key, generatorFunctions, callArgs);
+                lastResults[key] = resultVal;
+                const resetedGen = utils_1.resetGenerator(key, generatorFunctions, callArgs);
                 initializedGenerators[key] = resetedGen;
                 result[key] = resetedGen.next();
             }
@@ -46,5 +56,17 @@ function embed(generatorFunctions) {
             nextArg = yield utils_1.cpResult(result);
         }
     };
-}
+    compose.composeType = 'embed';
+    Object.defineProperty(compose, 'emptyNextArgs', {
+        get() {
+            return {};
+        }
+    });
+    Object.defineProperty(compose, 'emptyCallArgs', {
+        get() {
+            return {};
+        }
+    });
+    return compose;
+};
 exports.default = embed;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.initializeSingleGenerator = exports.initializeGenerators = exports.cpResult = void 0;
+exports.resetGenerator = exports.initializeGenerators = exports.isCompose = exports.cpResult = void 0;
 function cpResult(result) {
     const currentResultCopy = (result instanceof Array
         ? Array(result.length)
@@ -11,6 +11,13 @@ function cpResult(result) {
     return currentResultCopy;
 }
 exports.cpResult = cpResult;
+function isCompose(arg) {
+    if (typeof arg === 'function' && arg.composeType) {
+        return true;
+    }
+    return false;
+}
+exports.isCompose = isCompose;
 function initializeGenerators(generatorFunctions, callArgs) {
     const initializedGenerators = {};
     let stateMap = {};
@@ -18,13 +25,14 @@ function initializeGenerators(generatorFunctions, callArgs) {
     for (const key in generatorFunctions) {
         const args = callArgs[key];
         const genFunc = generatorFunctions[key];
-        if (args instanceof Array) {
-            initializedGenerators[key] = genFunc(...args);
+        stateMap[key] = { done: false };
+        if (isCompose(genFunc)) {
+            initializedGenerators[key] = genFunc(args instanceof Object ? args : {});
+            stateMap[key].isCompose = true;
         }
         else {
-            initializedGenerators[key] = genFunc();
+            initializedGenerators[key] = genFunc(...(args instanceof Array ? args : []));
         }
-        stateMap[key] = { done: false };
         count++;
     }
     return {
@@ -34,9 +42,14 @@ function initializeGenerators(generatorFunctions, callArgs) {
     };
 }
 exports.initializeGenerators = initializeGenerators;
-function initializeSingleGenerator(key, generatorFunctions, callArgs) {
+function resetGenerator(key, generatorFunctions, callArgs) {
     const args = callArgs[key];
     const genFunc = generatorFunctions[key];
-    return args instanceof Array ? genFunc(...args) : genFunc();
+    if (isCompose(genFunc)) {
+        return genFunc(args instanceof Object ? args : {});
+    }
+    else {
+        return genFunc(...(args instanceof Array ? args : []));
+    }
 }
-exports.initializeSingleGenerator = initializeSingleGenerator;
+exports.resetGenerator = resetGenerator;

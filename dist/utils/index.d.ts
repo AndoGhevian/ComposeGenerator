@@ -3,6 +3,7 @@ export declare function cpResult(result: {
 }): {
     [key: string]: IteratorResult<any, any>;
 };
+export declare function isCompose(arg: any): boolean;
 export declare function initializeGenerators(generatorFunctions: {
     [key: string]: (...args: any[]) => Generator;
 }, callArgs: {
@@ -12,6 +13,7 @@ export declare function initializeGenerators(generatorFunctions: {
         [key: string]: {
             done: boolean;
             returnedValue?: any;
+            isCompose?: boolean | undefined;
         };
     };
     count: number;
@@ -19,7 +21,7 @@ export declare function initializeGenerators(generatorFunctions: {
         [key: string]: Generator<unknown, any, unknown>;
     };
 };
-export declare function initializeSingleGenerator(key: string, generatorFunctions: {
+export declare function resetGenerator(key: string, generatorFunctions: {
     [key: string]: (...args: any[]) => Generator;
 }, callArgs: {
     [key: string]: any;

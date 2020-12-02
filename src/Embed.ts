@@ -1,26 +1,17 @@
-import { CallArgs, ComposeResult } from "./commonTypes";
+import {
+    Compose,
+    Composer,
+} from "./commonTypes";
 import {
     cpResult,
     initializeGenerators,
-    initializeSingleGenerator,
+    resetGenerator,
 } from "./utils";
 
-interface CustomGenerator<T extends ((...args: any[]) => Generator)[] | {
-    [key: string]: ((...args: any[]) => Generator)
-}> extends Generator<ComposeResult<T>, ComposeResult<T>> {
-    next<B>(arg0?: B extends Function ? ((
-        lastResults: T extends any[] ? IteratorResult<any, any>[] : { [P in keyof T]?: IteratorResult<any, any> },
-        key: string
-    ) => any) : any): IteratorResult<ComposeResult<T>, ComposeResult<T>>;
-    [Symbol.iterator](): CustomGenerator<T>
-}
 
-
-export default function embed<T extends ((...args: any[]) => Generator)[] | {
-    [key: string]: ((...args: any[]) => Generator)
-}>(generatorFunctions: T) {
-    return function* (args?: CallArgs<T>): CustomGenerator<T> {
-        const callArgs = (args ? args : {}) as { [key: string]: any }
+const embed: Composer<'embed'> = function (generatorFunctions) {
+    const compose: Compose<'embed'> = function* (args: any) {
+        const callArgs: any = (args ? args : {})
         const {
             stateMap,
             count,
@@ -29,15 +20,13 @@ export default function embed<T extends ((...args: any[]) => Generator)[] | {
             generatorFunctions as { [key: string]: (...args: any[]) => Generator },
             callArgs
         )
-        const generatorFunctionsIsArray = generatorFunctions instanceof Array
-        let result = (generatorFunctionsIsArray
-            ? Array(generatorFunctions.length)
-            : {}) as { [key: string]: IteratorResult<any, any> }
 
+        let result: any = {}
         let alreadyDone = false
         for (const key in initializedGenerators) {
             const nextVal = initializedGenerators[key].next()
-            result[key] = nextVal
+            const resultVal = stateMap[key].isCompose ? nextVal.value : nextVal
+            result[key] = resultVal
             alreadyDone = alreadyDone || !!nextVal.done
         }
         if (alreadyDone) {
@@ -46,28 +35,38 @@ export default function embed<T extends ((...args: any[]) => Generator)[] | {
 
         let nextArg = yield cpResult(result) as any
         while (true) {
-            let nextFunc = (lastResults: any, key: string) => nextArg
-            if (typeof nextArg === 'function') {
-                nextFunc = (lastResults: any, key: string) => nextArg!(cpResult(lastResults) as any, key)
-            }
+            const lastResults: any = {}
 
-            const lastResults = (generatorFunctionsIsArray ? [] : {}) as { [key: string]: IteratorResult<any, any> }
+            let nextFunc: (lastResults: any, key: any) => any
+            nextFunc = () => void (0)
+            if (typeof nextArg === 'function') {
+                let lastNextArgs: any = {}
+                nextFunc = (lastResults: any, key: string) => {
+                    const arg = nextArg!(cpResult(lastResults) as any, key, lastNextArgs, compose)
+                    if(arg instanceof Object) {
+                        lastNextArgs = arg
+                    }
+                    return lastNextArgs[key]
+                }
+            } else if(nextArg instanceof Object) {
+                nextFunc = (lastResults, key) => nextArg[key]
+            }
 
             let doneCount = 0
             for (const key in initializedGenerators) {
-
+                const gen = initializedGenerators[key]
                 const arg = nextFunc(lastResults, key)
-                const genFunc = initializedGenerators[key]
 
-                const nextVal = genFunc.next(arg)
+                const nextVal = gen.next(arg)
+                const resultVal = stateMap[key].isCompose ? nextVal.value : nextVal
                 if (!nextVal.done) {
-                    result[key] = nextVal
+                    result[key] = resultVal
                     break
                 }
 
                 doneCount++
-                lastResults[key] = nextVal
-                const resetedGen = initializeSingleGenerator(
+                lastResults[key] = resultVal
+                const resetedGen = resetGenerator(
                     key,
                     generatorFunctions as { [key: string]: (...args: any[]) => Generator },
                     callArgs
@@ -81,5 +80,20 @@ export default function embed<T extends ((...args: any[]) => Generator)[] | {
 
             nextArg = yield cpResult(result) as any
         }
-    }
+    } as any
+    compose.composeType = 'embed'
+    Object.defineProperty(compose, 'emptyNextArgs', {
+        get() {
+            return {}
+        }
+    })
+    Object.defineProperty(compose, 'emptyCallArgs', {
+        get() {
+            return {}
+        }
+    })
+    return compose
 }
+
+
+export default embed
