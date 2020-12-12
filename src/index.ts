@@ -53,7 +53,9 @@ export {
 // })
 
 // log(
-//     calledCompose.next()
+//     calledCompose.next((a,b,c) => {
+
+//     })
 // )
 // log(
 //     calledCompose.next()
