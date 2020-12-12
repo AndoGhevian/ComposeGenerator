@@ -1,6 +1,6 @@
 {
   "name": "compose-generator",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "description": "Embed or sync generator functions with ease",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
